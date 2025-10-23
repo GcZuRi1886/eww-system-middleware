@@ -2,16 +2,17 @@ package main
 
 import (
 	"bufio"
+	"encoding/json"
 	"fmt"
+	"log"
 	"net"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
-	"sync"
-)
 
-var hyprlandCommandSocket net.Conn
-var hyprlandCommandSockerMu sync.Mutex
+	"github.com/eww-system-middleware/types"
+)
 
 func openHyprlandSocket(sockName string) (net.Conn, error) {
 	sig := os.Getenv("HYPRLAND_INSTANCE_SIGNATURE")
@@ -28,44 +29,29 @@ func openHyprlandSocket(sockName string) (net.Conn, error) {
 
 
 // ---- listen and update workspace state over hyprland socket ----
-func openHyprlandCommandSocket() error {
-	if hyprlandCommandSocket != nil {
-		return nil
-	}
+func openHyprlandCommandSocket() (net.Conn, error) {
 	conn, err := openHyprlandSocket(".socket.sock")
-	if err != nil {
-		return err
-	}
-	hyprlandCommandSocket = conn
-	return nil
-}
-
-func closeHyprlandCommandSocket() {
-	if hyprlandCommandSocket != nil {
-		hyprlandCommandSocket.Close()
-		hyprlandCommandSocket = nil
-	}
-}
-
-func sendHyprlandCommand(cmd string) ([]byte, error) {
-	hyprlandCommandSockerMu.Lock()
-	defer hyprlandCommandSockerMu.Unlock()
-	
-	err := openHyprlandCommandSocket()
 	if err != nil {
 		return nil, err
 	}
+	return conn, nil
+}
 
-	_, err = hyprlandCommandSocket.Write([]byte(cmd + "\n"))
+func sendHyprlandCommand(cmd string) ([]byte, error) {
+	conn, err := openHyprlandCommandSocket()
 	if err != nil {
-		closeHyprlandCommandSocket()
+		return nil, err
+	}
+	defer conn.Close()
+
+	_, err = conn.Write([]byte(cmd))
+	if err != nil {
 		return nil, err
 	}
 
 	buf := make([]byte, 4096)
-	n, err := hyprlandCommandSocket.Read(buf)
+	n, err := conn.Read(buf)
 	if err != nil {
-		closeHyprlandCommandSocket()
 		return nil, err
 	}
 	
@@ -77,22 +63,51 @@ func getWorkspaceState() {
 	println("Fetching workspace state...")
 	out, err := sendHyprlandCommand("j/monitors")
 	if err != nil {
+		log.Printf("Error getting monitors: %v", err)
 		return
 	}
-	println(string(out))
-	current := gjsonGet(out, "0.activeWorkspace.id")
+	current := readHyprlandWorkspaceCurrent(out)
 
 	out2, err := sendHyprlandCommand("j/workspaces")
 	if err != nil {
+		log.Printf("Error getting workspaces: %v", err)
 		return
 	}
-	ids := gjsonArrayInt(out2, "id")
+	ids := readHyprlandWorkspaceIDs(out2)
 
 	state.mu.Lock()
 	state.CurrentState.Workspace.Current = current
 	state.CurrentState.Workspace.List = ids
 	state.mu.Unlock()
 	emit()
+}
+
+func readHyprlandWorkspaceIDs(workspacesJSON []byte) []int {
+	var wokspaces []types.Workspace
+	
+	if err := json.Unmarshal(workspacesJSON, &wokspaces); err != nil {
+		return nil
+	}
+	
+	var ids []int
+	for _, ws := range wokspaces {
+		ids = append(ids, ws.ID)
+	}
+	slices.Sort(ids)
+	return ids
+}
+
+func readHyprlandWorkspaceCurrent(workspacesJSON []byte) int {
+	var monitors []types.Monitor
+	if err := json.Unmarshal(workspacesJSON, &monitors); err != nil {
+		return 0
+	}
+
+	if len(monitors) == 0 {
+		return 0
+	}
+
+	return monitors[0].ActiveWorkspace.ID
 }
 
 

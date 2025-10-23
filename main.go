@@ -7,8 +7,6 @@ import (
 	"log"
 	"os"
 	"os/signal"
-	"sort"
-	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -45,32 +43,6 @@ func emit() {
 
 
 
-// minimal gjson-like helpers (no external deps)
-func gjsonGet(jsonData []byte, key string) int {
-	// very naive extractor for small arrays like monitors JSON
-	s := string(jsonData)
-	idx := strings.Index(s, key)
-	if idx == -1 {
-		return 0
-	}
-	var val int
-	fmt.Sscanf(s[idx+len(key)+2:], "%d", &val)
-	return val
-}
-func gjsonArrayInt(jsonData []byte, key string) []int {
-	s := string(jsonData)
-	lines := strings.Split(s, key)
-	var ids []int
-	for i := 1; i < len(lines); i++ {
-		var val int
-		fmt.Sscanf(lines[i][2:], "%d", &val)
-		ids = append(ids, val)
-	}
-	sort.Ints(ids)
-	return ids
-}
-
-
 // ----- periodic system info -----
 func sysInfoLoop() {
 	for {
@@ -100,10 +72,10 @@ func sysInfoLoop() {
 
 // ----- main -----
 func main() {
-	openHyprlandCommandSocket()
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
-	defer closeHyprlandCommandSocket()
+
+	getWorkspaceState()
 
 	go listenHyprlandEventSocket()
 	go sysInfoLoop()
