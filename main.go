@@ -25,8 +25,9 @@ type CurrentStateData struct {
 		List    []int `json:"list"`
 	} `json:"workspace"`
 	Time  string `json:"time"`
-	CPU   []float64    `json:"cpu"`
-	MemoryUsed int   `json:"memory"`
+	CPUPerCore   []float64    `json:"cpu_per_core"`
+	CPUAverage  float64      `json:"cpu_average"`
+	MemoryUsed int   `json:"memory_used"`
 	MemoryTotal int   `json:"memory_total"`
 }
 
@@ -47,11 +48,12 @@ func emit() {
 func sysInfoLoop() {
 	for {
 		// Time
-		now := time.Now().Format("15:04")
+		now := time.Now().Format("Mon 01 Jan 15:04:05")
 
 		// CPU usage 
 		percent, _ := cpu.Percent(0, true)
-		cpuUsage := percent 
+		cpuUsage := percent // per core
+		avgPercent, _ := cpu.Percent(0, false)
 
 		// Memory usage
 		vm, _ := mem.VirtualMemory()
@@ -60,7 +62,8 @@ func sysInfoLoop() {
 
 		state.mu.Lock()
 		state.CurrentState.Time = now
-		state.CurrentState.CPU = cpuUsage
+		state.CurrentState.CPUPerCore = cpuUsage
+		state.CurrentState.CPUAverage = avgPercent[0]
 		state.CurrentState.MemoryUsed = int(usedMem)
 		state.CurrentState.MemoryTotal = int(totalMem)
 		state.mu.Unlock()
