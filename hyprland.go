@@ -11,7 +11,7 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/eww-system-middleware/types"
+	"github.com/GcZuRi1886/eww-system-middleware/types"
 )
 
 func openHyprlandSocket(sockName string) (net.Conn, error) {
@@ -75,10 +75,10 @@ func getWorkspaceState() {
 	}
 	ids := readHyprlandWorkspaceIDs(out2)
 
-	state.mu.Lock()
+	state.Mu.Lock()
 	state.CurrentState.Workspace.Current = current
 	state.CurrentState.Workspace.List = ids
-	state.mu.Unlock()
+	state.Mu.Unlock()
 	emit()
 }
 
