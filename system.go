@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/GcZuRi1886/eww-system-middleware/types"
 	"github.com/shirou/gopsutil/v4/cpu"
 	"github.com/shirou/gopsutil/v4/mem"
 )
@@ -29,7 +30,12 @@ func sysInfoLoop() {
 		usedMem := vm.Used
 
 		// Update battery info
-		updateBatteryInfo()
+		batteryInfo := getBatteryInfo()
+
+		networkinfo, err := getNetworkInfo()
+		if err != nil {
+			fmt.Println("Error getting network info:", err)
+		}
 
 		state.Mu.Lock()
 		state.CurrentState.Time = now
@@ -37,6 +43,8 @@ func sysInfoLoop() {
 		state.CurrentState.CPUAverage = avgPercent[0]
 		state.CurrentState.MemoryUsed = int(usedMem)
 		state.CurrentState.MemoryTotal = int(totalMem)
+		state.CurrentState.Battery = *batteryInfo
+		state.CurrentState.Network = *networkinfo
 		state.Mu.Unlock()
 		emit()
 
@@ -45,12 +53,12 @@ func sysInfoLoop() {
 }
 
 // ----- get battery info -----
-func updateBatteryInfo() {
+func getBatteryInfo() *types.BatteryInfo {
 	batteryBase := "/sys/class/power_supply/BAT0/"
 	
 	batteryInfo, err := os.Open(batteryBase + "uevent")
 	if err != nil {
-		return
+		return &types.BatteryInfo{}
 	}
 	defer batteryInfo.Close()
 
@@ -75,12 +83,16 @@ func updateBatteryInfo() {
 		fullCapacity, _ := strconv.ParseFloat(batteryData["POWER_SUPPLY_ENERGY_FULL"], 64)
 		currentPercentage, _ := strconv.Atoi(batteryData["POWER_SUPPLY_CAPACITY"])
 		status := batteryData["POWER_SUPPLY_STATUS"]
-		fmt.Println(batteryData)
-		state.Mu.Lock()
-		state.CurrentState.Battery.Percentage = currentPercentage
-		state.CurrentState.Battery.State = status
-		state.CurrentState.Battery.TimeToEmpty = currentCapacity / chargeRate * 60 // in minutes
-		state.CurrentState.Battery.TimeToFull = (fullCapacity - currentCapacity) / chargeRate * 60 // in minutes 
-		state.Mu.Unlock()
+		if chargeRate == 0 {
+			chargeRate = 1 // to avoid division by zero
+		}
+		battery := &types.BatteryInfo{
+			Percentage:  currentPercentage,
+			State:       status,
+			TimeToEmpty: currentCapacity / chargeRate * 60, // in minutes
+			TimeToFull:  (fullCapacity - currentCapacity) / chargeRate * 60, // in minutes
+		}
+		return battery
 	}
+	return &types.BatteryInfo{}
 }
