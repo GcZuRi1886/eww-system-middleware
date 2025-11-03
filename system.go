@@ -13,8 +13,14 @@ import (
 	"github.com/shirou/gopsutil/v4/mem"
 )
 
+var systemInfo types.CurrentStateData
+var systemInfoWrapper types.Wrapper
+
+
 // ----- periodic system info -----
 func sysInfoLoop() {
+	systemInfoWrapper.Type = "system"
+	systemInfoWrapper.Data = &systemInfo
 	for {
 		// Time
 		now := time.Now().Format("Mon 01 Jan 15:04:05")
@@ -31,22 +37,26 @@ func sysInfoLoop() {
 
 		// Update battery info
 		batteryInfo := getBatteryInfo()
+		
+		// Audio info
+		//audioInfo, err := GetAudioInfo()
+		//if err != nil {
+		//	fmt.Println("Error getting audio info:", err)
+		//}
 
 		networkinfo, err := getNetworkInfo()
 		if err != nil {
 			fmt.Println("Error getting network info:", err)
 		}
 
-		state.Mu.Lock()
-		state.CurrentState.Time = now
-		state.CurrentState.CPUPerCore = cpuUsage
-		state.CurrentState.CPUAverage = avgPercent[0]
-		state.CurrentState.MemoryUsed = int(usedMem)
-		state.CurrentState.MemoryTotal = int(totalMem)
-		state.CurrentState.Battery = *batteryInfo
-		state.CurrentState.Network = *networkinfo
-		state.Mu.Unlock()
-		emit()
+		systemInfo.Time = now
+		systemInfo.CPUPerCore = cpuUsage
+		systemInfo.CPUAverage = avgPercent[0]
+		systemInfo.MemoryUsed = int(usedMem)
+		systemInfo.MemoryTotal = int(totalMem)
+		systemInfo.Battery = *batteryInfo
+		systemInfo.Network = *networkinfo
+		emit(systemInfoWrapper)
 
 		time.Sleep(3 * time.Second)
 	}

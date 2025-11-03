@@ -1,15 +1,7 @@
 // Package types defines types for this project
 package types
 
-import "sync"
-
-type State struct {
-	CurrentState CurrentStateData
-	Mu           sync.Mutex
-}
-
 type CurrentStateData struct {
-	Workspace 	WorkspaceInfo `json:"workspace"`
 	Time  			string 				`json:"time"`
 	CPUPerCore  []float64    	`json:"cpu_per_core"`
 	CPUAverage  float64      	`json:"cpu_average"`
@@ -17,11 +9,6 @@ type CurrentStateData struct {
 	MemoryTotal int   				`json:"memory_total"`
 	Battery 		BatteryInfo		`json:"battery"`
 	Network 		NetworkInfo		`json:"network"`
-}
-
-type WorkspaceInfo struct {
-		Current int   `json:"current"`
-		List    []int `json:"list"`
 }
 
 type BatteryInfo struct {
@@ -44,3 +31,9 @@ type NetworkInfo struct {
   BytesRecv      uint64  `json:"bytes_recv"`
 }
 
+// AudioInfo holds volume and mute state
+type AudioInfo struct {
+    Volume float64 `json:"volume"` // 0.0–1.0
+    Muted  bool    `json:"muted"`
+    Name   string  `json:"name,omitempty"`
+}

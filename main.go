@@ -8,17 +8,10 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
-
-	"github.com/GcZuRi1886/eww-system-middleware/types"
 )
 
-var state types.State
-
 // ----- emit updates to stdout -----
-func emit() {
-	state.Mu.Lock()
-	defer state.Mu.Unlock()
-	data := state.CurrentState
+func emit(data any) {
 	dataJSON, _ := json.Marshal(data)
 	fmt.Println(string(dataJSON))
 }
@@ -27,12 +20,23 @@ func emit() {
 func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
+	
+	args := os.Args
+	if len(args) != 2 {
+		log.Fatalf("Usage: %s <data_type>", args[0])
+	}
+	requestedData := args[1]
 
-	getWorkspaceState()
-
-	go listenHyprlandEventSocket()
-	go sysInfoLoop()
-
+	switch requestedData {
+		case "hyprland":
+			go listenHyprlandEventSocket()
+		case "system":
+			go sysInfoLoop()
+		case "bluetooth":
+			go listenForBluetoothChanges()
+		default:
+			log.Fatalf("Unknown requested data type: %s", requestedData)
+	}
 	log.Println("Daemon started. Press Ctrl+C to exit.")
 	<-ctx.Done()
 	log.Println("Shutting down daemon.")

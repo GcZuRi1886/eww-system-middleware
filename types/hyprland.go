@@ -48,3 +48,8 @@ type Workspace struct {
 	IsPersistent     bool   `json:"ispersistent"`
 }
 
+type WorkspaceInfo struct {
+		Current int   `json:"current_workspace"`
+		List    []int `json:"workspace_list"`
+}
+

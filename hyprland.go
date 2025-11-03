@@ -14,6 +14,9 @@ import (
 	"github.com/GcZuRi1886/eww-system-middleware/types"
 )
 
+var workspaceInfoWrapper types.Wrapper
+var workspaceInfo types.WorkspaceInfo
+
 func openHyprlandSocket(sockName string) (net.Conn, error) {
 	sig := os.Getenv("HYPRLAND_INSTANCE_SIGNATURE")
 	runtimeDir := os.Getenv("XDG_RUNTIME_DIR")
@@ -61,6 +64,7 @@ func sendHyprlandCommand(cmd string) ([]byte, error) {
 // ----- get current workspace info -----
 func getWorkspaceState() {
 	println("Fetching workspace state...")
+
 	out, err := sendHyprlandCommand("j/monitors")
 	if err != nil {
 		log.Printf("Error getting monitors: %v", err)
@@ -75,11 +79,10 @@ func getWorkspaceState() {
 	}
 	ids := readHyprlandWorkspaceIDs(out2)
 
-	state.Mu.Lock()
-	state.CurrentState.Workspace.Current = current
-	state.CurrentState.Workspace.List = ids
-	state.Mu.Unlock()
-	emit()
+	workspaceInfo.Current = current
+	workspaceInfo.List = ids
+
+	emit(workspaceInfoWrapper)
 }
 
 func readHyprlandWorkspaceIDs(workspacesJSON []byte) []int {
@@ -113,6 +116,12 @@ func readHyprlandWorkspaceCurrent(workspacesJSON []byte) int {
 
 // ----- listen to hyprland socket -----
 func listenHyprlandEventSocket() {
+	workspaceInfoWrapper.Type = "workspace"
+	workspaceInfoWrapper.Data = &workspaceInfo
+
+	// get initial state
+	getWorkspaceState()
+
 	f, _ := openHyprlandSocket(".socket2.sock")
 	defer f.Close()
 
