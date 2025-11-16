@@ -10,17 +10,19 @@ import (
 	"syscall"
 )
 
+var socketPath = "/tmp/eww-system-middleware.sock"
+
 // ----- emit updates to stdout -----
 func emit(data any) {
 	dataJSON, _ := json.Marshal(data)
-	fmt.Println(string(dataJSON))
+	fmt.Printf("\r%s", string(dataJSON))
 }
 
 // ----- main -----
 func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
-	
+
 	args := os.Args
 	if len(args) != 2 {
 		log.Fatalf("Usage: %s <data_type>", args[0])
@@ -31,9 +33,15 @@ func main() {
 		case "hyprland":
 			go listenHyprlandEventSocket()
 		case "system":
-			go sysInfoLoop()
+			//go sysInfoLoop(emit)
 		case "bluetooth":
 			go listenForBluetoothChanges()
+		case "socket":
+			_, err := connectToSocket(socketPath)
+			if err != nil {
+				log.Fatalf("Failed to connect to socket: %v", err)
+			}
+			go sysInfoLoop(broadcast)
 		default:
 			log.Fatalf("Unknown requested data type: %s", requestedData)
 	}

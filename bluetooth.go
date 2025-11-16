@@ -1,8 +1,6 @@
 package main
 
 import (
-	"encoding/json"
-	"fmt"
 	"log"
 	"os"
 	"os/signal"
@@ -125,11 +123,6 @@ func handleSignal(signalMsg *dbus.Signal, info *types.BluetoothInfo) {
 			info.Powered = getVariantBool(powered)
 		}
 	}
-}
-
-func printJSON(info *types.BluetoothInfo) {
-	jsonBytes, _ := json.Marshal(info)
-	fmt.Println(string(jsonBytes))
 }
 
 func getVariantString(v dbus.Variant) string {
