@@ -62,7 +62,7 @@ func sendHyprlandCommand(cmd string) ([]byte, error) {
 }
 
 // ----- get current workspace info -----
-func getWorkspaceState() {
+func getWorkspaceState(emit func(dataType string, data any)) {
 	println("Fetching workspace state...")
 
 	out, err := sendHyprlandCommand("j/monitors")
@@ -82,7 +82,7 @@ func getWorkspaceState() {
 	workspaceInfo.Current = current
 	workspaceInfo.List = ids
 
-	emit(workspaceInfoWrapper)
+	emit(workspaceInfoWrapper.Type, workspaceInfoWrapper)
 }
 
 func readHyprlandWorkspaceIDs(workspacesJSON []byte) []int {
@@ -115,12 +115,12 @@ func readHyprlandWorkspaceCurrent(workspacesJSON []byte) int {
 
 
 // ----- listen to hyprland socket -----
-func listenHyprlandEventSocket() {
-	workspaceInfoWrapper.Type = "workspace"
+func listenHyprlandEventSocket(emit func(dataType string, data any)) {
+	workspaceInfoWrapper.Type = "hyprland"
 	workspaceInfoWrapper.Data = &workspaceInfo
 
 	// get initial state
-	getWorkspaceState()
+	getWorkspaceState(emit)
 
 	f, _ := openHyprlandSocket(".socket2.sock")
 	defer f.Close()
@@ -131,7 +131,7 @@ func listenHyprlandEventSocket() {
 		if strings.HasPrefix(line, "workspace>>") ||
 			strings.HasPrefix(line, "createworkspace>>") ||
 			strings.HasPrefix(line, "destroyworkspace>>") {
-			getWorkspaceState()
+			getWorkspaceState(emit)
 		}
 	}
 }

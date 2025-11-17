@@ -12,8 +12,8 @@ import (
 
 var socketPath = "/tmp/eww-system-middleware.sock"
 
-// ----- emit updates to stdout -----
-func emit(data any) {
+// ----- emitToConsole updates to stdout -----
+func emitToConsole(dataType string, data any) {
 	dataJSON, _ := json.Marshal(data)
 	fmt.Printf("\r%s", string(dataJSON))
 }
@@ -31,17 +31,19 @@ func main() {
 
 	switch requestedData {
 		case "hyprland":
-			go listenHyprlandEventSocket()
+			go listenHyprlandEventSocket(emitToConsole)
 		case "system":
-			//go sysInfoLoop(emit)
+			go sysInfoLoop(emitToConsole)
 		case "bluetooth":
-			go listenForBluetoothChanges()
+			go listenForBluetoothChanges(emitToConsole)
 		case "socket":
 			_, err := connectToSocket(socketPath)
 			if err != nil {
 				log.Fatalf("Failed to connect to socket: %v", err)
 			}
 			go sysInfoLoop(broadcast)
+			go listenHyprlandEventSocket(broadcast)
+			go listenForBluetoothChanges(broadcast)
 		default:
 			log.Fatalf("Unknown requested data type: %s", requestedData)
 	}

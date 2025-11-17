@@ -8,6 +8,8 @@ import (
 	"os"
 	"strings"
 	"sync"
+
+	"github.com/GcZuRi1886/eww-system-middleware/types"
 )
 
 // Groups of clients subscribed to each info type
@@ -18,12 +20,11 @@ var subscribers = struct {
 
 // Broadcast message of a specific type to all subscribers of that type
 func broadcast(infoType string, data any) {
-	msg, err := json.Marshal(data)
+	msg, err := marshalData(data)
 	if err != nil {
-		fmt.Printf("JSON marshal error: %v\n", err)
+		fmt.Printf("Error marshaling data for broadcast: %v\n", err)
 		return
 	}
-	msg = append(msg, '\n')
 
 	subscribers.RLock()
 	defer subscribers.RUnlock()
@@ -34,12 +35,24 @@ func broadcast(infoType string, data any) {
 	}
 
 	for c := range conns {
-		_, err := c.Write([]byte(msg))
-		if err != nil {
-			fmt.Printf("Write error, removing client: %v\n", err)
-			removeClientFromAllTypes(c)
-			c.Close()
-		}
+		writeToConn(c, msg)
+	}
+}
+
+func marshalData(data any) (string, error) {
+	msgBytes, err := json.Marshal(data)
+	if err != nil {
+		return "", fmt.Errorf("JSON marshal error: %w", err)
+	}
+	return string(msgBytes) + "\n", nil
+}
+
+func writeToConn(c net.Conn, msg string) {
+	_, err := c.Write([]byte(msg))
+	if err != nil {
+		fmt.Errorf("Write error: %v", err)
+		removeClientFromAllTypes(c)
+		c.Close()
 	}
 }
 
@@ -51,6 +64,8 @@ func subscribe(c net.Conn, infoType string) {
 	if subscribers.m[infoType] == nil {
 		subscribers.m[infoType] = make(map[net.Conn]bool)
 	}
+	
+	fmt.Println("Subscribing client to", infoType)
 
 	subscribers.m[infoType][c] = true
 }
@@ -68,6 +83,7 @@ func removeClientFromAllTypes(c net.Conn) {
 // Handle an individual client session
 func handleClient(conn net.Conn) {
 	defer conn.Close()
+	conn.Write([]byte("Welcome to the system info socket server!\n"))
 
 	reader := bufio.NewReader(conn)
 
@@ -92,10 +108,28 @@ func handleClient(conn net.Conn) {
 			infoType := strings.ToUpper(parts[1])
 			subscribe(conn, infoType)
 			conn.Write([]byte("OK subscribed to " + infoType + "\n"))
+			getInitialStates(conn, infoType)
 			continue
 		}
 
 		conn.Write([]byte("ERROR unknown command\n"))
+	}
+}
+
+func getInitialStates(conn net.Conn, infoType string) {
+
+	switch infoType {
+		case "BLUETOOTH":
+			// Initial emit of current bluetooth state
+			var bluetoothDataWrapper = initBluetoothDataWrapper()
+			loadInitialBluezState(bluetoothDataWrapper.Data.(*types.BluetoothInfo))
+			msg, err := marshalData(bluetoothDataWrapper)
+			if err == nil {
+				writeToConn(conn, msg)
+			}
+		case "HYPRLAND":
+			// Initial emit of current hyprland workspace state
+			getWorkspaceState(broadcast)
 	}
 }
 

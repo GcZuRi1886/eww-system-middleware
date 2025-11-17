@@ -18,7 +18,7 @@ var systemInfoWrapper types.Wrapper
 
 
 // ----- periodic system info -----
-func sysInfoLoop(emitSysInfo func(dataType string, data any)) {
+func sysInfoLoop(emit func(dataType string, data any)) {
 	systemInfoWrapper.Type = "system"
 	systemInfoWrapper.Data = &systemInfo
 	for {
@@ -56,9 +56,7 @@ func sysInfoLoop(emitSysInfo func(dataType string, data any)) {
 		systemInfo.MemoryTotal = int(totalMem)
 		systemInfo.Battery = *batteryInfo
 		systemInfo.Network = *networkinfo
-		//systemInfo.Audio = *audioInfo
-		//emitToSocket(systemInfoWrapper)
-		emitSysInfo(systemInfoWrapper.Type, systemInfoWrapper)
+		emit(systemInfoWrapper.Type, systemInfoWrapper)
 
 		time.Sleep(3 * time.Second)
 	}

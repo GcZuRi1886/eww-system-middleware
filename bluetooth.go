@@ -4,39 +4,54 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 
 	"github.com/GcZuRi1886/eww-system-middleware/types"
 	"github.com/godbus/dbus/v5"
 )
 
-func listenForBluetoothChanges() {
+var BluetoothConnection struct {
+	Conn *dbus.Conn
+	sync.Mutex
+}
+
+func initBluetoothDataWrapper() types.Wrapper {
+	var bluetoothDataWrapper types.Wrapper
+	bluetoothDataWrapper.Type = "bluetooth"
+
+	bluetoothDataWrapper.Data = &types.BluetoothInfo{
+		Devices: make(map[string]*types.BluetoothDevice),
+	}
+	return bluetoothDataWrapper
+}
+
+func listenForBluetoothChanges(emit func(dataType string, data any)) {
 	conn, err := dbus.SystemBus()
 	if err != nil {
 		log.Fatalf("Failed to connect to system bus: %v", err)
 	}
+	BluetoothConnection.Conn = conn
 	
-	var jsonOutput types.Wrapper
-	jsonOutput.Type = "bluetooth"
-
-	jsonOutput.Data = &types.BluetoothInfo{
-		Devices: make(map[string]*types.BluetoothDevice),
-	}
+	var bluetoothDataWrapper = initBluetoothDataWrapper()
 
 	// Initial state
-	loadInitialState(conn, jsonOutput.Data.(*types.BluetoothInfo))
-	emit(jsonOutput)
+	loadInitialBluezState(bluetoothDataWrapper.Data.(*types.BluetoothInfo))
+	emit(bluetoothDataWrapper.Type, bluetoothDataWrapper)
 
+	BluetoothConnection.Lock()
+	defer BluetoothConnection.Unlock()
 	// Add a signal match rule for BlueZ Property changes
 	rule := "type='signal',sender='org.bluez',interface='org.freedesktop.DBus.Properties',member='PropertiesChanged'"
-	call := conn.BusObject().Call("org.freedesktop.DBus.AddMatch", 0, rule)
+	call := BluetoothConnection.Conn.BusObject().Call("org.freedesktop.DBus.AddMatch", 0, rule)
 	if call.Err != nil {
 		log.Fatalf("Failed to add D-Bus match: %v", call.Err)
 	}
 
 	// Channel to receive D-Bus signals
 	c := make(chan *dbus.Signal, 10)
-	conn.Signal(c)
+	BluetoothConnection.Conn.Signal(c)
+	BluetoothConnection.Unlock()
 
 	// Handle system interrupts to exit cleanly
 	sigc := make(chan os.Signal, 1)
@@ -48,15 +63,17 @@ func listenForBluetoothChanges() {
 			log.Printf("Exiting on signal: %v", sig)
 			return
 		case signalMsg := <-c:
-			handleSignal(signalMsg, jsonOutput.Data.(*types.BluetoothInfo))
-			emit(jsonOutput)
+			handleSignal(signalMsg, bluetoothDataWrapper.Data.(*types.BluetoothInfo))
+			emit(bluetoothDataWrapper.Type, bluetoothDataWrapper)
 		}
 	}
 }
 
 // Load initial device + adapter state
-func loadInitialState(conn *dbus.Conn, info *types.BluetoothInfo) {
-	obj := conn.Object("org.bluez", dbus.ObjectPath("/"))
+func loadInitialBluezState(info *types.BluetoothInfo) {
+	BluetoothConnection.Lock()
+	defer BluetoothConnection.Unlock()
+	obj := BluetoothConnection.Conn.Object("org.bluez", dbus.ObjectPath("/"))
 	var managed map[dbus.ObjectPath]map[string]map[string]dbus.Variant
 
 	err := obj.Call("org.freedesktop.DBus.ObjectManager.GetManagedObjects", 0).Store(&managed)
