@@ -7,7 +7,7 @@ import (
 	"sync"
 	"syscall"
 
-	"github.com/GcZuRi1886/eww-system-middleware/types"
+	"github.com/GcZuRi1886/system-info-provider/types"
 	"github.com/godbus/dbus/v5"
 )
 

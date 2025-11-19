@@ -11,7 +11,7 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/GcZuRi1886/eww-system-middleware/types"
+	"github.com/GcZuRi1886/system-info-provider/types"
 )
 
 var workspaceInfoWrapper types.Wrapper

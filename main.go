@@ -10,7 +10,7 @@ import (
 	"syscall"
 )
 
-var socketPath = "/tmp/eww-system-middleware.sock"
+var socketPath = "/tmp/system-info-provider.sock"
 
 // ----- emitToConsole updates to stdout -----
 func emitToConsole(dataType string, data any) {

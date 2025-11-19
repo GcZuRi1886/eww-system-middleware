@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/GcZuRi1886/eww-system-middleware/types"
+	"github.com/GcZuRi1886/system-info-provider/types"
 	"github.com/shirou/gopsutil/v4/cpu"
 	"github.com/shirou/gopsutil/v4/mem"
 )
