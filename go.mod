@@ -1,4 +1,4 @@
-module github.com/GcZuRi1886/eww-system-middleware
+module github.com/GcZuRi1886/system-info-provider
 
 go 1.25.1
 
